@@ -1,0 +1,120 @@
+---
+# =========================================================
+# Replication bootstrap (Master -> Standby)
+# - Standby에서 실행될 때도 Master 상태를 안전하게 얻도록 delegate_to 사용
+# - SHOW SLAVE STATUS가 "진짜 빈 세트"면(=row 0개) 초기 설정 수행
+# =========================================================
+
+# 1) Master(DB-A)에서 현재 binlog 파일/포지션 가져오기 (한 번만)
+- name: Get master status (run once, from master)
+  community.mysql.mysql_query:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW MASTER STATUS"
+  register: master_status_raw
+  delegate_to: "{{ groups['db_master'][0] }}"
+  run_once: true
+
+# 2) Master status를 localhost fact로 저장 (모든 호스트가 동일 참조 가능)
+- name: Store master binlog facts on master host
+  set_fact:
+    master_log_file: "{{ master_status_raw.query_result[0][0].File }}"
+    master_log_pos: "{{ master_status_raw.query_result[0][0].Position }}"
+  delegate_to: "{{ groups['db_master'][0] }}"
+  run_once: true
+
+# 3) Standby에서 현재 Slave 설정 여부 확인
+- name: Check slave status (standby)
+  community.mysql.mysql_query:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW SLAVE STATUS"
+  register: slave_status
+  when: "'db_standby' in group_names"
+
+# mysql_query 반환 구조는 query_result[쿼리번호][row번호] 형태.
+# SHOW SLAVE STATUS가 "Empty set"이면 query_result[0]이 빈 리스트([])가 됨.
+- name: Determine if replication already configured (standby)
+  set_fact:
+    repl_configured: >-
+      {{
+        (slave_status.query_result is defined)
+        and (slave_status.query_result | length > 0)
+        and (slave_status.query_result[0] | length > 0)
+      }}
+  when: "'db_standby' in group_names"
+
+# 4) 초기 부트스트랩: Slave 설정이 없으면(Empty set) -> CHANGE MASTER TO / START SLAVE
+- name: Stop slave (safe, standby)
+  community.mysql.mysql_query:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "STOP SLAVE"
+  when:
+    - "'db_standby' in group_names"
+    - not repl_configured
+
+- name: Reset slave all (standby, bootstrap)
+  community.mysql.mysql_query:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "RESET SLAVE ALL"
+  when:
+    - "'db_standby' in group_names"
+    - not repl_configured
+
+- name: Configure replication (CHANGE MASTER TO, standby, bootstrap)
+  community.mysql.mysql_query:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: >
+      CHANGE MASTER TO
+      MASTER_HOST='{{ hostvars[groups["db_master"][0]].ansible_host }}',
+      MASTER_PORT=3306,
+      MASTER_USER='{{ repl_user }}',
+      MASTER_PASSWORD='{{ repl_password }}',
+      MASTER_LOG_FILE='{{ hostvars[groups["db_master"][0]].master_log_file }}',
+      MASTER_LOG_POS={{ hostvars[groups["db_master"][0]].master_log_pos }},
+      GET_MASTER_PUBLIC_KEY=1
+  when:
+    - "'db_standby' in group_names"
+    - not repl_configured
+
+- name: Start slave (standby, bootstrap)
+  community.mysql.mysql_query:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "START SLAVE"
+  when:
+    - "'db_standby' in group_names"
+    - not repl_configured
+# =========================================================
+# Ensure Slave SQL thread is running
+# =========================================================
+
+- name: Re-check slave status (standby)
+  community.mysql.mysql_query:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "SHOW SLAVE STATUS"
+  register: slave_status_final
+  when: "'db_standby' in group_names"
+
+- name: Ensure Slave SQL thread is running
+  community.mysql.mysql_query:
+    login_unix_socket: /var/lib/mysql/mysql.sock
+    login_user: root
+    login_password: "{{ mysql_root_password }}"
+    query: "START SLAVE"
+  when:
+    - "'db_standby' in group_names"
+    - slave_status_final.query_result | length > 0
+    - slave_status_final.query_result[0][0].Slave_SQL_Running == 'No'
+

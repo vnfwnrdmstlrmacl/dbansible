@@ -1,0 +1,17 @@
+- name: Configure DB Master
+  hosts: db_master
+  become: true
+  roles:
+    - db
+
+- name: Configure DB Standby
+  hosts: db_standby
+  become: true
+  roles:
+    - db
+
+- name: Configure DB Backup
+  hosts: db_backup
+  become: true
+  roles:
+    - db

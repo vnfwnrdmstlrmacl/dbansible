@@ -1,0 +1,12 @@
+[mysqld]
+bind-address = {{ ansible_host }}
+
+{% if 'db_master' in group_names %}
+server-id = 1
+log_bin = mysql-bin
+binlog_format = ROW
+{% elif 'db_standby' in group_names %}
+server-id = 2
+relay-log = relay-bin
+read_only = ON
+{% endif %}

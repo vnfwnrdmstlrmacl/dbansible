@@ -1,0 +1,27 @@
+---
+# =========================================================
+# MySQL root
+# =========================================================
+mysql_root_password: "RootStrongPass!"
+
+# =========================================================
+# Replication
+# =========================================================
+repl_user: "repl"
+repl_password: "ReplStrongPass!"
+
+# =========================================================
+# Application DB
+# =========================================================
+app_db: "appdb"
+app_user: "appuser"
+app_password: "AppStrongPass!"
+
+# =========================================================
+# Backup
+# =========================================================
+backup_user: "backup"
+backup_password: "BackupStrongPass!"
+backup_dir: "/backup/mysql"
+backup_retention_days: 7
+
