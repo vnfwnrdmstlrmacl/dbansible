@@ -1,0 +1,36 @@
+---
+- name: Verify keepalived is enabled
+  ansible.builtin.command: systemctl is-enabled keepalived
+  register: keepalived_enabled
+  changed_when: false
+  failed_when: keepalived_enabled.rc != 0
+
+- name: Verify keepalived is active
+  ansible.builtin.command: systemctl is-active keepalived
+  register: keepalived_active
+  changed_when: false
+  failed_when: keepalived_active.rc != 0
+
+- name: Capture VIP presence on this node
+  ansible.builtin.shell: |
+    ip -4 addr show | grep -q "{{ keepalived_vip.split('/')[0] }}"
+  register: vip_present
+  changed_when: false
+  failed_when: false
+
+- name: Assert VIP exists on at least one proxy node
+  ansible.builtin.run_once: true
+  ansible.builtin.assert:
+    that:
+      - >-
+        (
+          groups['proxy']
+          | map('extract', hostvars, 'vip_present')
+          | map(attribute='rc')
+          | select('equalto', 0)
+          | list
+          | length
+        ) >= 1
+    fail_msg: "VIP {{ keepalived_vip }} not found on any proxy node."
+    success_msg: "VIP {{ keepalived_vip }} found on at least one proxy node."
+

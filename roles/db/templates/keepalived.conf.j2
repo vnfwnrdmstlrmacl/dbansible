@@ -1,0 +1,40 @@
+! Configuration File for keepalived
+
+global_defs {
+  router_id {{ inventory_hostname }}
+}
+
+vrrp_script chk_link {
+  script "{{ keepalived_check_script }}"
+  interval 2
+  weight -10
+  fall 2
+  rise 2
+  user root
+}
+
+vrrp_instance VI_1 {
+  state BACKUP
+  interface {{ keepalived_interface }}
+  virtual_router_id {{ keepalived_router_id }}
+  priority {{ keepalived_priority_map[inventory_hostname] | default(100) }}
+  advert_int 1
+
+  authentication {
+    auth_type PASS
+    auth_pass 42pass42
+  }
+
+  virtual_ipaddress {
+    {{ keepalived_vip }}
+  }
+
+  track_script {
+    chk_link
+  }
+}
+global_defs {
+  router_id {{ inventory_hostname }}
+  script_security
+}
+

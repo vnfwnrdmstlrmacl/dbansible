@@ -1,0 +1,8 @@
+---
+- name: Keepalived preparation / activation
+  ansible.builtin.include_tasks: proxy_keepalived_stage2.yml
+
+- name: Verify keepalived status (stage3 only)
+  ansible.builtin.include_tasks: proxy_keepalived_verify.yml
+  when: keepalived_enable | bool
+

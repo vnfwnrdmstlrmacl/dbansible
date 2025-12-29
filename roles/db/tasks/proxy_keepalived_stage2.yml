@@ -1,0 +1,70 @@
+---
+- name: Install keepalived (RHEL family)
+  ansible.builtin.package:
+    name:
+      - keepalived
+    state: present
+
+- name: Ensure health check script exists
+  ansible.builtin.copy:
+    dest: "{{ keepalived_check_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+    content: |
+      #!/usr/bin/env bash
+      # 목적: VRRP 인터페이스 링크 체크(단순)
+      # 실패 시 non-zero 반환
+      set -euo pipefail
+
+      IFACE="{{ keepalived_interface }}"
+      ip link show "$IFACE" | grep -q "state UP"
+
+- name: Deploy keepalived.conf
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: restart keepalived
+
+# (선택) firewalld가 켜져있다면 VRRP 허용
+# VRRP는 IP protocol 112 입니다.
+- name: Ensure firewalld is installed (optional)
+  ansible.builtin.package:
+    name: firewalld
+    state: present
+  when: proxy_manage_firewalld | bool
+
+- name: Ensure firewalld is running (optional)
+  ansible.builtin.service:
+    name: firewalld
+    state: started
+    enabled: true
+  when: proxy_manage_firewalld | bool
+
+- name: Allow VRRP protocol 112 in firewalld (optional)
+  ansible.posix.firewalld:
+    rich_rule: 'rule protocol value="vrrp" accept'
+    permanent: true
+    immediate: true
+    state: enabled
+  when: proxy_manage_firewalld | bool
+
+# 단계2 요구사항: keepalived는 "아직 올리지 않는다"
+- name: Stop and disable keepalived (stage2)
+  ansible.builtin.service:
+    name: keepalived
+    state: stopped
+    enabled: false
+
+- name: Enable and start keepalived (stage3)
+  ansible.builtin.service:
+    name: keepalived
+    state: started
+    enabled: true
+  when: keepalived_enable | bool
+# 참고: 단계2에서 sysctl/ip_forward는 "필요 시" 미리 켜도 되지만
+# VIP/라우팅 활성화 전에만 보수적으로 두려면 단계3로 넘기세요.
+

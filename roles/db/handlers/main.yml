@@ -2,3 +2,10 @@
   systemd:
     name: mysqld
     state: restarted
+
+- name: restart keepalived
+  ansible.builtin.service:
+    name: keepalived
+    state: restarted
+  when: keepalived_enable | bool
+

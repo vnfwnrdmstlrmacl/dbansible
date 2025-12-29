@@ -140,3 +140,16 @@
 - import_tasks: backup.yml
   when: "'db_backup' in group_names"
 
+#=======================================================
+# add proxy include
+#======================================================
+
+- name: Proxy tasks
+  ansible.builtin.include_tasks: proxy.yml
+  when: "'proxy' in group_names"
+
+- name: DB tasks (master/standby/backup)
+  ansible.builtin.include_tasks: mariadb.yml
+  when:
+    - "'db_master' in group_names or 'db_standby' in group_names or 'db_backup' in group_names"
+

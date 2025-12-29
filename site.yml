@@ -1,3 +1,9 @@
+---
+- name: Configure Proxy 
+  hosts: proxy
+  become: true
+  roles:
+    - db
 - name: Configure DB Master
   hosts: db_master
   become: true

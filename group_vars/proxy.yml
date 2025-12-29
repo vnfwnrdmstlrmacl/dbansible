@@ -1,0 +1,18 @@
+# keepalived 기본
+keepalived_enable: true           # 단계2: 설치/설정만, VIP 올리지 않음
+keepalived_interface: "ens160"     # Host-Only NIC 이름으로 바꾸세요 (예: ens160)
+keepalived_vip: "192.168.10.9/24"  # VIP (단계3에서 활성화할 주소)
+keepalived_router_id: 51           # VRID (동일해야 함)
+
+# 프록시 이중화 우선순위
+# proxy1이 MASTER가 되도록 우선순위 높게
+keepalived_priority_map:
+  proxy1: 150
+  proxy2: 100
+
+# 헬스체크 스크립트(단순: keepalived 프로세스/네트워크 확인 용)
+keepalived_check_script: "/usr/local/bin/chk_keepalived_link.sh"
+
+# 방화벽 (RHEL 계열 + firewalld 기준)
+proxy_manage_firewalld: true
+
