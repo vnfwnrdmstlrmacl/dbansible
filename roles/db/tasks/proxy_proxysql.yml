@@ -1,0 +1,44 @@
+---
+- name: Install dependencies for repo management
+  ansible.builtin.package:
+    name:
+      - ca-certificates
+      - curl
+    state: present
+
+# EL9 계열에서 dnf config-manager 제공
+- name: Install dnf config-manager
+  ansible.builtin.package:
+    name: dnf-plugins-core
+    state: present
+
+# ProxySQL 공식 repo 추가 (ProxySQL upstream repo)
+- name: Add ProxySQL YUM repository
+  ansible.builtin.copy:
+    dest: /etc/yum.repos.d/proxysql.repo
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      [proxysql]
+      name=ProxySQL YUM repository
+      baseurl=https://repo.proxysql.com/ProxySQL/proxysql-2.6.x/centos/9
+      gpgcheck=0
+      enabled=1
+
+# 메타데이터 갱신
+- name: Make cache
+  ansible.builtin.command: dnf makecache
+  changed_when: false
+
+- name: Install ProxySQL
+  ansible.builtin.package:
+    name: proxysql
+    state: present
+
+- name: Ensure ProxySQL is enabled and started
+  ansible.builtin.service:
+    name: proxysql
+    state: started
+    enabled: true
+

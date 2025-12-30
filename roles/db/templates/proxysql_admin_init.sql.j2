@@ -1,0 +1,30 @@
+-- backend servers (writer/reader)
+DELETE FROM mysql_servers WHERE hostgroup_id IN ({{ hg_writer }}, {{ hg_reader }});
+
+INSERT INTO mysql_servers(hostgroup_id, hostname, port, weight, max_connections)
+VALUES
+({{ hg_writer }}, '{{ db_writer_host }}', {{ db_port }}, 100, 200),
+({{ hg_reader }}, '{{ db_reader_host }}', {{ db_port }}, 100, 200);
+
+-- replication hostgroups (optional but useful for read_only based routing)
+DELETE FROM mysql_replication_hostgroups WHERE writer_hostgroup={{ hg_writer }} AND reader_hostgroup={{ hg_reader }};
+INSERT INTO mysql_replication_hostgroups(writer_hostgroup, reader_hostgroup, check_type, comment)
+VALUES ({{ hg_writer }}, {{ hg_reader }}, 'read_only', 'RW/RO split based on read_only');
+
+-- monitor credentials
+SET mysql-monitor_username='{{ proxysql_monitor_user }}';
+SET mysql-monitor_password='{{ proxysql_monitor_password }}';
+
+-- app user (clients connect to ProxySQL with this)
+DELETE FROM mysql_users WHERE username='{{ app_db_user }}';
+INSERT INTO mysql_users(username, password, default_hostgroup, transaction_persistent, fast_forward)
+VALUES ('{{ app_db_user }}', '{{ app_db_password }}', {{ hg_writer }}, 1, 0);
+
+LOAD MYSQL VARIABLES TO RUNTIME;
+LOAD MYSQL SERVERS TO RUNTIME;
+LOAD MYSQL USERS TO RUNTIME;
+
+SAVE MYSQL VARIABLES TO DISK;
+SAVE MYSQL SERVERS TO DISK;
+SAVE MYSQL USERS TO DISK;
+

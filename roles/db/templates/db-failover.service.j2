@@ -1,0 +1,14 @@
+[Unit]
+Description=DB Failover loop (run only on ACTIVE Proxy)
+After=network.target proxysql.service
+Wants=proxysql.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/db_failover_loop.sh
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+

@@ -1,0 +1,17 @@
+#!/bin/bash
+set -euo pipefail
+
+# DB Failover STOP script
+# - keepalived notify_backup / notify_fault 에서 호출되는 용도
+# - 서비스 중지/격리/헬스체크 차단 등 "스탑 동작"을 여기에 구현
+
+LOG="/var/log/db_failover.log"
+TS="$(date '+%F %T')"
+
+echo "[$TS] db_failover_stop called on $(hostname)" >> "$LOG"
+
+# 예시: ProxySQL이 있다면 writer 라우팅 차단/상태 변경 같은 작업을 넣을 수 있음
+# mysql -h 127.0.0.1 -P 6032 -uadmin -p'{{ proxysql_admin_password | default("admin") }}' \
+#   -e "UPDATE mysql_servers SET status='OFFLINE_HARD' WHERE hostgroup_id=10; LOAD MYSQL SERVERS TO RUNTIME; SAVE MYSQL SERVERS TO DISK;"
+
+exit 0

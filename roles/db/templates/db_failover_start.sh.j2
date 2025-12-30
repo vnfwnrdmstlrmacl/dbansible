@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+systemctl stop db-failover.service || true
+logger -t db-failover "STOP: db-failover loop stopped (Proxy BACKUP/FAULT)"
+

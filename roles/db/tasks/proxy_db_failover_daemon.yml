@@ -1,0 +1,44 @@
+---
+- name: Render failover loop script
+  ansible.builtin.template:
+    src: db_failover_loop.sh.j2
+    dest: /usr/local/bin/db_failover_loop.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render failover start script (called by keepalived notify_master)
+  ansible.builtin.template:
+    src: db_failover_start.sh.j2
+    dest: /usr/local/bin/db_failover_start.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render failover stop script (called by keepalived notify_backup/fault)
+  ansible.builtin.template:
+    src: db_failover_stop.sh.j2
+    dest: /usr/local/bin/db_failover_stop.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render systemd unit
+  ansible.builtin.template:
+    src: db-failover.service.j2
+    dest: /etc/systemd/system/db-failover.service
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+# 서비스는 "자동 실행"이 아니라 keepalived가 MASTER일 때만 start 하게 둔다
+- name: Ensure db-failover service is disabled by default
+  ansible.builtin.service:
+    name: db-failover
+    enabled: false
+    state: stopped
+

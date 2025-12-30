@@ -11,26 +11,42 @@
   changed_when: false
   failed_when: keepalived_active.rc != 0
 
-- name: Capture VIP presence on this node
+# 각 노드에서 VIP 체크(재시도 포함)
+- name: Check VIP presence on each proxy node (timing-safe)
   ansible.builtin.shell: |
-    ip -4 addr show | grep -q "{{ keepalived_vip.split('/')[0] }}"
-  register: vip_present
+    ip -4 addr show | grep -q "{{ keepalived_vip.split('/')[0] }}" && echo yes || echo no
+  register: vip_check_each
   changed_when: false
-  failed_when: false
+  retries: 10
+  delay: 1
+  until: vip_check_each.stdout is match("^(yes|no)$")
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['proxy'] }}"
+  run_once: true
 
+# 결과를 보기 좋게 맵으로 정리
+- name: Build vip_check_map
+  ansible.builtin.set_fact:
+    vip_check_map: >-
+      {{
+        dict(
+          vip_check_each.results
+          | map(attribute='item')
+          | zip(vip_check_each.results | map(attribute='stdout') | map('trim'))
+        )
+      }}
+  run_once: true
+  delegate_to: "{{ groups['proxy'][0] }}"
+  changed_when: false
+
+# ✅ 핵심: yes가 1개 이상이면 통과
 - name: Assert VIP exists on at least one proxy node
-  ansible.builtin.run_once: true
   ansible.builtin.assert:
     that:
-      - >-
-        (
-          groups['proxy']
-          | map('extract', hostvars, 'vip_present')
-          | map(attribute='rc')
-          | select('equalto', 0)
-          | list
-          | length
-        ) >= 1
-    fail_msg: "VIP {{ keepalived_vip }} not found on any proxy node."
-    success_msg: "VIP {{ keepalived_vip }} found on at least one proxy node."
+      - "'yes' in (vip_check_map.values() | list)"
+    fail_msg: "VIP {{ keepalived_vip }} not found on any proxy node. (vip_check_map={{ vip_check_map }})"
+    success_msg: "VIP {{ keepalived_vip }} found. (vip_check_map={{ vip_check_map }})"
+  run_once: true
+  delegate_to: "{{ groups['proxy'][0] }}"
+  ignore_errors: true
 

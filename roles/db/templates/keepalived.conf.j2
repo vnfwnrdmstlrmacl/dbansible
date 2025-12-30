@@ -2,6 +2,7 @@
 
 global_defs {
   router_id {{ inventory_hostname }}
+  script_security
 }
 
 vrrp_script chk_link {
@@ -32,9 +33,9 @@ vrrp_instance VI_1 {
   track_script {
     chk_link
   }
-}
-global_defs {
-  router_id {{ inventory_hostname }}
-  script_security
+
+  notify_master "/usr/local/bin/db_failover_start.sh"
+  notify_backup "/usr/local/bin/db_failover_stop.sh"
+  notify_fault  "/usr/local/bin/db_failover_stop.sh"
 }
 

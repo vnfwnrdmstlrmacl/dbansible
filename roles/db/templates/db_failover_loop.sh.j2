@@ -1,0 +1,62 @@
+#!/bin/bash
+set -euo pipefail
+
+DBA="{{ db_writer_host }}"
+DBS="{{ db_reader_host }}"
+DBPORT="{{ db_port }}"
+
+ADMIN_U="{{ proxysql_admin_user }}"
+ADMIN_P="{{ proxysql_admin_password }}"
+ADMIN_PORT="{{ proxysql_admin_port }}"
+
+HGW="{{ hg_writer }}"
+HGR="{{ hg_reader }}"
+
+INTERVAL="{{ db_check_interval }}"
+CTO="{{ db_connect_timeout }}"
+
+fail=0
+threshold=3
+
+log() { logger -t db-failover "$*"; echo "$*"; }
+
+mysql_admin() {
+  mysql -h 127.0.0.1 -P "${ADMIN_PORT}" -u "${ADMIN_U}" -p"${ADMIN_P}" -Nse "$1"
+}
+
+db_ping() {
+  timeout "${CTO}" bash -c "exec 3<>/dev/tcp/${1}/${DBPORT}" >/dev/null 2>&1
+}
+
+promote_standby() {
+  log "PROMOTE: try promote standby ${DBS} (read_only OFF)"
+  mysql -h "${DBS}" -P "${DBPORT}" -u "{{ proxysql_monitor_user }}" -p"{{ proxysql_monitor_password }}" -e "SET GLOBAL read_only=OFF;" >/dev/null 2>&1 || true
+  mysql -h "${DBS}" -P "${DBPORT}" -u "{{ proxysql_monitor_user }}" -p"{{ proxysql_monitor_password }}" -e "SET GLOBAL super_read_only=OFF;" >/dev/null 2>&1 || true
+}
+
+switch_writer_to_standby() {
+  log "SWITCH: ProxySQL writer -> ${DBS}"
+  mysql_admin "DELETE FROM mysql_servers WHERE hostgroup_id=${HGW};"
+  mysql_admin "INSERT INTO mysql_servers(hostgroup_id,hostname,port,weight,max_connections) VALUES (${HGW},'${DBS}',${DBPORT},100,200);"
+  mysql_admin "LOAD MYSQL SERVERS TO RUNTIME;"
+  mysql_admin "SAVE MYSQL SERVERS TO DISK;"
+}
+
+while true; do
+  if db_ping "${DBA}"; then
+    fail=0
+  else
+    fail=$((fail+1))
+    log "WARN: DB-A(${DBA}) unreachable count=${fail}/${threshold}"
+  fi
+
+  if [ "${fail}" -ge "${threshold}" ]; then
+    log "FAILOVER: DB-A(${DBA}) DOWN. Promote DB-S and switch writer."
+    promote_standby
+    switch_writer_to_standby
+    fail=0
+  fi
+
+  sleep "${INTERVAL}"
+done
+

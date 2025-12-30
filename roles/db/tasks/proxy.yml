@@ -5,4 +5,10 @@
 - name: Verify keepalived status (stage3 only)
   ansible.builtin.include_tasks: proxy_keepalived_verify.yml
   when: keepalived_enable | bool
+- name: Install and configure ProxySQL
+  ansible.builtin.include_tasks: proxy_proxysql.yml
+
+- name: Install DB failover daemon (run only on ACTIVE Proxy)
+  ansible.builtin.include_tasks: proxy_db_failover_daemon.yml
+  when: db_failover_enable | bool
 

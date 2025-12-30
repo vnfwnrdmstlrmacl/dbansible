@@ -15,4 +15,31 @@ keepalived_check_script: "/usr/local/bin/chk_keepalived_link.sh"
 
 # 방화벽 (RHEL 계열 + firewalld 기준)
 proxy_manage_firewalld: true
+# ProxySQL
+proxysql_admin_user: "admin"
+proxysql_admin_password: "adminpass"
+proxysql_mysql_port: 6033
+proxysql_admin_port: 6032
+
+# 앱이 ProxySQL로 붙을 계정(백엔드 MySQL 계정과 동일하게 운영하는 경우 많음)
+app_db_user: "appuser"
+app_db_password: "apppass"
+
+# ProxySQL monitor 계정(백엔드 DB에 생성 필요)
+proxysql_monitor_user: "monitor"
+proxysql_monitor_password: "monitorpass"
+
+# DB 노드
+db_writer_host: "192.168.10.20"   # DB-A
+db_reader_host: "192.168.10.30"   # DB-S
+db_port: 3306
+
+# Hostgroups (관례적으로 writer=10, reader=20)
+hg_writer: 10
+hg_reader: 20
+
+# Failover daemon
+db_failover_enable: true
+db_check_interval: 2
+db_connect_timeout: 2
 
