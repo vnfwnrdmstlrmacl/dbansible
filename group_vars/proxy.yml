@@ -1,7 +1,7 @@
 # keepalived 기본
 keepalived_enable: true           # 단계2: 설치/설정만, VIP 올리지 않음
 keepalived_interface: "ens160"     # Host-Only NIC 이름으로 바꾸세요 (예: ens160)
-keepalived_vip: "192.168.10.9/24"  # VIP (단계3에서 활성화할 주소)
+keepalived_vip: "10.2.2.254/32"  # VIP (단계3에서 활성화할 주소)
 keepalived_router_id: 51           # VRID (동일해야 함)
 
 # 프록시 이중화 우선순위
@@ -30,8 +30,8 @@ proxysql_monitor_user: "monitor"
 proxysql_monitor_password: "monitorpass"
 
 # DB 노드
-db_writer_host: "192.168.10.20"   # DB-A
-db_reader_host: "192.168.10.30"   # DB-S
+db_writer_host: "10.2.3.2"   # DB-A
+db_reader_host: "10.2.3.3"   # DB-S
 db_port: 3306
 
 # Hostgroups (관례적으로 writer=10, reader=20)

@@ -155,9 +155,8 @@
 
 
 #===============================================
-# make DB failover
-#===============================================
+# Create ProxySQL monitor -> DBfailover
 - name: "DB - Create ProxySQL monitor user (for ProxySQL healthcheck/failover)"
   ansible.builtin.include_tasks: db_proxysql_monitor_user.yml
   when: "'db_master' in group_names or 'db_standby' in group_names"
-
+#===============================================

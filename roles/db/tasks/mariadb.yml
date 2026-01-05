@@ -1,0 +1,12 @@
+- name: Create ProxySQL monitor user on DB nodes
+  ansible.builtin.shell: |
+    set -e
+    mysql -uroot -p'{{ mysql_root_password }}' -e "CREATE USER IF NOT EXISTS '{{ proxysql_monitor_user }}'@'%' IDENTIFIED BY '{{ proxysql_monitor_password }}';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "GRANT USAGE ON *.* TO '{{ proxysql_monitor_user }}'@'%';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "GRANT REPLICATION CLIENT ON *.* TO '{{ proxysql_monitor_user }}'@'%';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "FLUSH PRIVILEGES;"
+  args:
+    executable: /bin/bash
+  no_log: true
+  changed_when: false
+

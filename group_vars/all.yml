@@ -1,0 +1,3 @@
+proxysql_monitor_user: "monitor"
+proxysql_monitor_password: "monitorpass"
+mysql_root_password: "RootStrongPass!"
