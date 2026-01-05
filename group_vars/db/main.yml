@@ -1,0 +1,11 @@
+proxysql_monitor_user: "monitor"
+proxysql_monitor_password: "{{ vault_proxysql_monitor_password }}"
+
+# DB에서 유저 생성할 때 root 로컬 접속에 패스워드가 필요한 환경이면 사용
+mysql_root_password: "{{ vault_mysql_root_password }}"
+
+# failover 전용 계정(생성 대상)
+mysql_failover_user: "failover_admin"
+mysql_failover_password: "{{ vault_mysql_failover_password }}"
+mysql_failover_allowed_host: "10.2.2.%"   # Proxy 대역으로 맞춰
+

@@ -1,0 +1,31 @@
+- name: DB - Ensure failover admin user exists
+  ansible.builtin.shell: |
+    set -e
+    MYSQL_PWD='{{ mysql_root_password }}' mysql -uroot -e "
+      CREATE USER IF NOT EXISTS '{{ mysql_failover_user }}'@'{{ mysql_failover_allowed_host }}'
+      IDENTIFIED BY '{{ mysql_failover_password }}';
+      GRANT SUPER, PROCESS, REPLICATION CLIENT ON *.* TO '{{ mysql_failover_user }}'@'{{ mysql_failover_allowed_host }}';
+      FLUSH PRIVILEGES;
+    "
+  args:
+    executable: /bin/bash
+      #  no_log: true
+  changed_when: false
+  when: inventory_hostname in (groups['db_master'] + groups['db_standby'])
+
+- name: DB - Create ProxySQL monitor user
+  ansible.builtin.shell: |
+    set -e
+    MYSQL_PWD='{{ mysql_root_password }}' mysql -uroot -e "
+      CREATE USER IF NOT EXISTS '{{ proxysql_monitor_user }}'@'%'
+      IDENTIFIED BY '{{ proxysql_monitor_password }}';
+      GRANT USAGE ON *.* TO '{{ proxysql_monitor_user }}'@'%';
+      GRANT REPLICATION CLIENT ON *.* TO '{{ proxysql_monitor_user }}'@'%';
+      FLUSH PRIVILEGES;
+    "
+  args:
+    executable: /bin/bash
+      #  no_log: true
+  changed_when: false
+  when: inventory_hostname in (groups['db_master'] + groups['db_standby'])
+

@@ -83,7 +83,7 @@
     login_password: "{{ mysql_root_password }}"
     name: "{{ repl_user }}"
     password: "{{ repl_password }}"
-    host: "192.168.10.%"
+    host: "10.2.3.%"
     priv: "*.*:REPLICATION SLAVE"
     state: present
   when: "'db_master' in group_names"
@@ -110,7 +110,7 @@
     login_password: "{{ mysql_root_password }}"
     name: "{{ app_user }}"
     password: "{{ app_password }}"
-    host: "192.168.10.%"
+    host: "10.2.3.%"
     priv: "{{ app_db }}.*:ALL"
     state: present
   when: "'db_master' in group_names"
@@ -130,7 +130,7 @@
     login_password: "{{ mysql_root_password }}"
     name: "{{ backup_user }}"
     password: "{{ backup_password }}"
-    host: "{{ hostvars['db-b']['ansible_host'] | default('192.168.10.40') }}"
+    host: "{{ hostvars['db-b']['ansible_host'] | default('10.2.3.4') }}"
     priv: "*.*:SELECT,LOCK TABLES,SHOW VIEW"
     state: present
   when: "'db_master' in group_names"
@@ -148,15 +148,37 @@
   ansible.builtin.include_tasks: proxy.yml
   when: "'proxy' in group_names"
 
-- name: DB tasks (master/standby/backup)
-  ansible.builtin.include_tasks: mariadb.yml
-  when:
-    - "'db_master' in group_names or 'db_standby' in group_names or 'db_backup' in group_names"
-
+- name: DB - Create ProxySQL monitor user (for ProxySQL healthcheck/failover)
+  ansible.builtin.shell: |
+    set -e
+    mysql -uroot -p'{{ mysql_root_password }}' -e "CREATE USER IF NOT EXISTS '{{ proxysql_monitor_user }}'@'%' IDENTIFIED BY '{{ proxysql_monitor_password }}';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "GRANT USAGE ON *.* TO '{{ proxysql_monitor_user }}'@'%';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "GRANT REPLICATION CLIENT ON *.* TO '{{ proxysql_monitor_user }}'@'%';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "FLUSH PRIVILEGES;"
+  args:
+    executable: /bin/bash
+  no_log: true
+  changed_when: false
+  when: inventory_hostname in (groups['db_master'] + groups['db_standby'])
 
 #===============================================
 # Create ProxySQL monitor -> DBfailover
-- name: "DB - Create ProxySQL monitor user (for ProxySQL healthcheck/failover)"
-  ansible.builtin.include_tasks: db_proxysql_monitor_user.yml
-  when: "'db_master' in group_names or 'db_standby' in group_names"
-#===============================================
+#==============================================
+- name: DB - Create ProxySQL monitor user (for ProxySQL healthcheck/failover)
+  ansible.builtin.shell: |
+    set -e
+    mysql -uroot -p'{{ mysql_root_password }}' -e "CREATE USER IF NOT EXISTS '{{ proxysql_monitor_user }}'@'%' IDENTIFIED BY '{{ proxysql_monitor_password }}';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "GRANT USAGE ON *.* TO '{{ proxysql_monitor_user }}'@'%';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "GRANT REPLICATION CLIENT ON *.* TO '{{ proxysql_monitor_user }}'@'%';"
+    mysql -uroot -p'{{ mysql_root_password }}' -e "FLUSH PRIVILEGES;"
+  args:
+    executable: /bin/bash
+#  no_log: true
+  changed_when: false
+  when: inventory_hostname in (groups['db_master'] + groups['db_standby'])
+
+    # db vip
+- name: DB - Create required DB users (monitor/failover)
+  ansible.builtin.include_tasks: db_users.yml
+  when: inventory_hostname in (groups['db_master'] + groups['db_standby'])
+
